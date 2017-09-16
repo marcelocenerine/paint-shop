@@ -28,9 +28,7 @@ package object paintshop {
     override def compare(that: Paint): Int = (this.color, this.sheen.id) compare (that.color, that.sheen.id)
   }
 
-  case class PaintSelection(paints: Set[Paint]) {
-    override def toString: String = paints.toSeq.sorted.mkString(" ")
-  }
+  case class PaintSelection(paints: Set[Paint])
 
   case class Palette(colors: Set[Color], sheens: Set[Sheen])
 }

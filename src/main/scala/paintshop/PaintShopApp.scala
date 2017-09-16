@@ -22,10 +22,7 @@ object PaintShopApp extends App {
 
       BatchOrder.from(input) match {
         case Right(BatchOrder(palette, selections)) =>
-          Mixer.mix(selections, palette) match {
-            case Some(mix) => println(mix)
-            case None => println("No solution exists")
-          }
+          printSolution(Mixer.mix(selections, palette))
 
         case Left(parseError) => println(parseError.msg)
       }
@@ -33,6 +30,14 @@ object PaintShopApp extends App {
       case ex: Throwable =>
         println("Unexpected error: " + ex.getMessage)
         sys.exit(1)
+    }
+
+    def printSolution(solution: Option[PaintSelection]) = solution match {
+      case Some(mix) =>
+        val sortedPaints = mix.paints.toSeq.sorted
+        println(sortedPaints.map(_.sheen).mkString(" "))
+
+      case None => println("No solution exists")
     }
   }
 

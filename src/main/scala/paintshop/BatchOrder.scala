@@ -54,7 +54,7 @@ object BatchOrder {
           }
         }
 
-        traverse(maybePaints.toList)(identity).map(PaintSelection)
+        traverse(maybePaints)(identity).map(paints => PaintSelection(paints.toSet))
 
       case _ => Left(ParseError(s"Malformed line: '$line'"))
     }
@@ -62,7 +62,7 @@ object BatchOrder {
 
   private def tryToInt(s: String): Option[Int] = Try(s.toInt).toOption
 
-  private def traverse[A, L, R](xs: List[A])(op: A => Either[L, R]): Either[L, List[R]] =
+  private def traverse[A, L, R](xs: TraversableOnce[A])(op: A => Either[L, R]): Either[L, List[R]] =
     xs.foldRight(Right(Nil): Either[L, List[R]]) { (x, acc) =>
       for (axs <- acc.right; opx <- op(x).right) yield opx :: axs
     }

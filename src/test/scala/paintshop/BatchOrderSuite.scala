@@ -38,20 +38,20 @@ class BatchOrderSuite extends FunSuite with EitherValues {
       Set(Gloss, Matte))
     )
     assert(order.right.value.selections === List(
-      PaintSelection(List(Paint(Color(2), Matte))),
-      PaintSelection(List(Paint(Color(5), Gloss))),
-      PaintSelection(List(Paint(Color(1), Gloss))),
-      PaintSelection(List(Paint(Color(5), Gloss), Paint(Color(1), Gloss), Paint(Color(4), Matte))),
-      PaintSelection(List(Paint(Color(3), Gloss))),
-      PaintSelection(List(Paint(Color(5), Gloss))),
-      PaintSelection(List(Paint(Color(3), Gloss), Paint(Color(5), Gloss), Paint(Color(1), Gloss))),
-      PaintSelection(List(Paint(Color(3), Gloss))),
-      PaintSelection(List(Paint(Color(2), Matte))),
-      PaintSelection(List(Paint(Color(5), Gloss), Paint(Color(1), Gloss))),
-      PaintSelection(List(Paint(Color(2), Matte))),
-      PaintSelection(List(Paint(Color(5), Gloss))),
-      PaintSelection(List(Paint(Color(4), Matte))),
-      PaintSelection(List(Paint(Color(5), Gloss), Paint(Color(4), Matte)))
+      PaintSelection(Set(Paint(Color(2), Matte))),
+      PaintSelection(Set(Paint(Color(5), Gloss))),
+      PaintSelection(Set(Paint(Color(1), Gloss))),
+      PaintSelection(Set(Paint(Color(5), Gloss), Paint(Color(1), Gloss), Paint(Color(4), Matte))),
+      PaintSelection(Set(Paint(Color(3), Gloss))),
+      PaintSelection(Set(Paint(Color(5), Gloss))),
+      PaintSelection(Set(Paint(Color(3), Gloss), Paint(Color(5), Gloss), Paint(Color(1), Gloss))),
+      PaintSelection(Set(Paint(Color(3), Gloss))),
+      PaintSelection(Set(Paint(Color(2), Matte))),
+      PaintSelection(Set(Paint(Color(5), Gloss), Paint(Color(1), Gloss))),
+      PaintSelection(Set(Paint(Color(2), Matte))),
+      PaintSelection(Set(Paint(Color(5), Gloss))),
+      PaintSelection(Set(Paint(Color(4), Matte))),
+      PaintSelection(Set(Paint(Color(5), Gloss), Paint(Color(4), Matte)))
     ))
   }
 

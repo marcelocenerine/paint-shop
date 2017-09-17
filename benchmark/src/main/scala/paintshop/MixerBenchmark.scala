@@ -17,12 +17,9 @@ class MixerBenchmark {
   var colors: Int = _
 
   var selections: List[PaintSelection] = _
-  var palette: Palette = _
 
   @Setup(Level.Trial)
   def initTrial(): Unit = {
-    palette = Palette((1 to colors).map(Color).toSet, Sheen.all)
-
     selections = List.tabulate(50)(_ => {
       val paints = (1 to colors).map(c => Paint(Color(c), if (c % 2 == 0) Gloss else Matte)).toSet
       PaintSelection(paints)
@@ -31,7 +28,7 @@ class MixerBenchmark {
 
   @Benchmark
   def feasible(bh: Blackhole): Unit = {
-    bh.consume(Mixer.mix(selections, palette))
+    bh.consume(Mixer.mix(selections))
   }
 
   @Benchmark
@@ -39,6 +36,6 @@ class MixerBenchmark {
     val unfeasibleSelection =
       PaintSelection(Set(Paint(Color(1), Gloss))) :: PaintSelection(Set(Paint(Color(1), Matte))) :: selections
 
-    bh.consume(Mixer.mix(unfeasibleSelection, palette))
+    bh.consume(Mixer.mix(unfeasibleSelection))
   }
 }

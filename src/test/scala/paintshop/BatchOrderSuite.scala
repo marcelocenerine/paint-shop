@@ -122,7 +122,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
         |1 M 2 Z""".stripMargin
     ))
 
-    assert(order.left.value === ParseError("Malformed line: '1 M 2 Z'"))
+    assert(order.left.value === ParseError("Invalid sheen 'Z' in line '1 M 2 Z'"))
   }
 
   test("should fail to create from file if any line is not well formatted") {

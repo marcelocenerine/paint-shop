@@ -35,26 +35,20 @@ object BatchOrder {
     }
   }
 
-  private val ValidLineRegex = """^(\d+ [GM])( \d+ [GM])*$""".r
-  private val PairRegex = """(\d+)\s([GM])""".r
+  private val ValidLineRegex = """^(\d+ [A-Z])( \d+ [A-Z])*$""".r
 
   private def parseLine(colorCount: Int, line: String): Either[ParseError, PaintSelection] = {
     line match {
       case ValidLineRegex(_*) =>
-        val maybePaints = PairRegex.findAllMatchIn(line).map { matching =>
-          val maybeColorId = tryToInt(matching.group(1))
-          val maybeSheen = Sheen.from(matching.group(2))
-
-          (maybeColorId, maybeSheen) match {
-            case (Some(colorId), Some(sheen)) =>
-              if (colorId > 0 && colorId <= colorCount) Right(Paint(Color(colorId), sheen))
-              else Left(ParseError(s"Invalid color '$colorId' in line '$line'"))
-
-            case _ => throw new Error("incorrect regex. Fix it!") // regex made sure pair of values are valid
+        val pairs = line.split(" ").grouped(2) // regex made sure all are pairs
+        val selections = traverse(pairs){ case Array(c, s) =>
+          (tryToInt(c), Sheen.from(s)) match {
+            case (Some(colorId), Some(sheen)) if colorId > 0 && colorId <= colorCount => Right(Paint(Color(colorId), sheen))
+            case (_, Some(_)) => Left(ParseError(s"Invalid color '$c' in line '$line'"))
+            case (_, None) => Left(ParseError(s"Invalid sheen '$s' in line '$line'"))
           }
         }
-
-        traverse(maybePaints)(identity).map(paints => PaintSelection(paints.toSet))
+        selections.map(paints => PaintSelection(paints.toSet))
 
       case _ => Left(ParseError(s"Malformed line: '$line'"))
     }

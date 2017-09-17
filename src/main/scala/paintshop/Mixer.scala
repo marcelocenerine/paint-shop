@@ -7,10 +7,11 @@ object Mixer {
   /**
     * Time complexity: `O(n^m)` - exponential - in the worst case scenario, where n = sheens and m = colors.
     */
-  def mix(selections: List[PaintSelection], palette: Palette): Option[PaintSelection] = {
-    if (selections.isEmpty || !canPaletteFulfilSelections(selections, palette)) None
+  def mix(selections: List[PaintSelection]): Option[PaintSelection] = {
+    if (selections.isEmpty) None
     else {
-      val allCombinations = combinations(palette.colors, palette.sheens)
+      val distinctColors = (for ( s <- selections; p <- s.paints) yield p.color).toSet
+      val allCombinations = combinations(distinctColors, Sheen.all)
       val orderedByCost = allCombinations.sortBy(_.paints.count(_ == Matte))
 
       def satisfiesAll(mix: PaintSelection): Boolean = {
@@ -22,10 +23,6 @@ object Mixer {
       orderedByCost.find(satisfiesAll)
     }
   }
-
-  private def canPaletteFulfilSelections(selections: List[PaintSelection], palette: Palette): Boolean =
-    selections.forall(sel =>
-      sel.paints.forall(paint => palette.colors.contains(paint.color) && palette.sheens.contains(paint.sheen)))
 
   private def combinations(colors: Set[Color], sheens: Set[Sheen]): List[PaintSelection] = {
     @tailrec

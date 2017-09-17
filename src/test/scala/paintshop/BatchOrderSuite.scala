@@ -33,10 +33,6 @@ class BatchOrderSuite extends FunSuite with EitherValues {
         |4 M
         |5 G 4 M""".stripMargin))
 
-    assert(order.right.value.palette === Palette(
-      Set(Color(1), Color(2), Color(3), Color(4), Color(5)),
-      Set(Gloss, Matte))
-    )
     assert(order.right.value.selections === List(
       PaintSelection(Set(Paint(Color(2), Matte))),
       PaintSelection(Set(Paint(Color(5), Gloss))),
@@ -91,7 +87,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   test("should fail to create from file if lines are missing") {
     val order = BatchOrder.from(text("5"))
 
-    assert(order.left.value === ParseError("Color count informed but no lines"))
+    assert(order.left.value === ParseError("Color count informed but no orders"))
   }
 
   test("should fail to create from file if any line has invalid color") {
@@ -113,6 +109,26 @@ class BatchOrderSuite extends FunSuite with EitherValues {
     ))
 
     assert(order.left.value === ParseError("Invalid color '3' in line '1 M 2 G 3 G'"))
+  }
+
+  test("should fail to create from file if there are less colors than informed in the header") {
+    val order = BatchOrder.from(text(
+      """3
+        |1 M
+        |2 G""".stripMargin
+    ))
+
+    assert(order.left.value === ParseError("Total number of colors < 3"))
+  }
+
+  test("should fail to create from file if there are duplicate colors in the order") {
+    val order = BatchOrder.from(text(
+      """2
+        |1 M 1 G
+        |2 G""".stripMargin
+    ))
+
+    assert(order.left.value === ParseError("Duplicate colors in line '1 M 1 G'"))
   }
 
   test("should fail to create from file if any line has invalid sheen") {

@@ -3,52 +3,61 @@ package paintshop
 import scala.io.Source
 import scala.util.Try
 
-class BatchOrder private (val palette: Palette, val selections: List[PaintSelection]) {
+class BatchOrder private (val selections: List[PaintSelection]) {
   def isEmpty: Boolean = selections.isEmpty
 }
 
 object BatchOrder {
 
-  def unapply(order: BatchOrder): Option[(Palette, List[PaintSelection])] = Some((order.palette, order.selections))
+  def unapply(order: BatchOrder): Option[List[PaintSelection]] = Some(order.selections)
 
-  def empty: BatchOrder = new BatchOrder(Palette(Set.empty, Set.empty), Nil)
+  def empty: BatchOrder = new BatchOrder(Nil)
 
   def from(source: Source): Either[ParseError, BatchOrder] = {
     val lines = source.getLines().toList
 
     lines match {
-      case header :: lines =>
-        tryToInt(header) match {
-          case Some(colorCount) if colorCount == 0 && lines.isEmpty => Right(BatchOrder.empty)
-          case Some(colorCount) if colorCount > 0 =>
-            if (!lines.isEmpty) {
-              traverse(lines)(parseLine(colorCount, _)).map { selections =>
-                val colors = ((1 to colorCount) map Color).toSet
-                val palette = Palette(colors, Sheen.all)
-                new BatchOrder(palette, selections)
-              }
-            } else Left(ParseError("Color count informed but no lines"))
-
-          case _ => Left(ParseError(s"Invalid color count: '$header'"))
-        }
+      case header :: orders => parseOrders(header, orders)
       case Nil => Left(ParseError("Empty input file"))
     }
   }
 
-  private val LineRegex = """^(\d+ [A-Z])( \d+ [A-Z])*$""".r
+  private def parseOrders(header: String, lines: List[String]) = {
+    tryToInt(header) match {
+      case Some(colorCount) if colorCount == 0 && lines.isEmpty => Right(BatchOrder.empty)
+      case Some(colorCount) if colorCount > 0 =>
+        if (!lines.isEmpty) {
+          traverse(lines)(parseOrder(colorCount, _)).flatMap { selections =>
+            val distinctColors = (for ( sel <- selections; p <- sel.paints ) yield p.color).distinct
 
-  private def parseLine(colorCount: Int, line: String): Either[ParseError, PaintSelection] = {
+            if (distinctColors.size == colorCount) Right(new BatchOrder(selections))
+            else Left(ParseError(s"Total number of colors < $colorCount"))
+          }
+        } else Left(ParseError("Color count informed but no orders"))
+
+      case _ => Left(ParseError(s"Invalid color count: '$header'"))
+    }
+  }
+
+  private val OrderRegex = """^(\d+ [A-Z])( \d+ [A-Z])*$""".r
+
+  private def parseOrder(colorCount: Int, line: String): Either[ParseError, PaintSelection] = {
     line match {
-      case LineRegex(_*) =>
+      case OrderRegex(_*) =>
         val pairs = line.split(" ").grouped(2) // regex made sure all are pairs
-        val selections = traverse(pairs){ case Array(c, s) =>
+        val maybePaints = traverse(pairs){ case Array(c, s) =>
           (tryToInt(c), Sheen.from(s)) match {
             case (Some(colorId), Some(sheen)) if colorId > 0 && colorId <= colorCount => Right(Paint(Color(colorId), sheen))
             case (_, Some(_)) => Left(ParseError(s"Invalid color '$c' in line '$line'"))
             case (_, None) => Left(ParseError(s"Invalid sheen '$s' in line '$line'"))
           }
         }
-        selections.map(paints => PaintSelection(paints.toSet))
+        maybePaints.flatMap { paints =>
+          val distinctColors = paints.map(_.color).distinct
+
+          if (paints.size == distinctColors.size) Right(PaintSelection(paints.toSet))
+          else Left(ParseError(s"Duplicate colors in line '$line'"))
+        }
 
       case _ => Left(ParseError(s"Malformed line: '$line'"))
     }

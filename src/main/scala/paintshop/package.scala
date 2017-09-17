@@ -29,6 +29,4 @@ package object paintshop {
   }
 
   case class PaintSelection(paints: Set[Paint])
-
-  case class Palette(colors: Set[Color], sheens: Set[Sheen])
 }

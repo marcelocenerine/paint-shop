@@ -21,9 +21,7 @@ object PaintShopApp extends App {
       val input = Source.fromInputStream(is)
 
       BatchOrder.from(input) match {
-        case Right(BatchOrder(palette, selections)) =>
-          printSolution(Mixer.mix(selections, palette))
-
+        case Right(BatchOrder(selections)) => printSolution(Mixer.mix(selections))
         case Left(parseError) => println(parseError.msg)
       }
     } catch {

@@ -5,7 +5,7 @@ import scala.annotation.tailrec
 object Mixer {
 
   /**
-    * Time complexity: `O(2^n)` - exponential - in the worst case scenario, where n = sheens * colors.
+    * Time complexity: `O(n^m)` - exponential - in the worst case scenario, where n = sheens and m = colors.
     */
   def mix(selections: List[PaintSelection], palette: Palette): Option[PaintSelection] = {
     if (selections.isEmpty || !canPaletteFulfilSelections(selections, palette)) None

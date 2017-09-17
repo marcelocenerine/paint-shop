@@ -12,11 +12,11 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should create empty from file") {
-    assert(BatchOrder.from(file("0")).right.value.isEmpty)
+    assert(BatchOrder.from(text("0")).right.value.isEmpty)
   }
 
   test("should create from file") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """5
         |2 M
         |5 G
@@ -56,13 +56,13 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from empty file") {
-    val order = BatchOrder.from(file(""))
+    val order = BatchOrder.from(text(""))
 
     assert(order.left.value === ParseError("Empty input file"))
   }
 
   test("should fail to create from file if color count is not a number") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """?
         |1 G""".stripMargin
     ))
@@ -71,7 +71,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from file if color count is a negative number") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """-1
         |1 G""".stripMargin
     ))
@@ -80,7 +80,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from file if color count is zero but there are lines") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """0
         |1 G""".stripMargin
     ))
@@ -89,13 +89,13 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from file if lines are missing") {
-    val order = BatchOrder.from(file("5"))
+    val order = BatchOrder.from(text("5"))
 
     assert(order.left.value === ParseError("Color count informed but no lines"))
   }
 
   test("should fail to create from file if any line has invalid color") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """2
         |1 M
         |2 G
@@ -106,7 +106,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from file if any line has color not in the palette") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """2
         |1 M
         |1 M 2 G 3 G""".stripMargin
@@ -116,7 +116,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from file if any line has invalid sheen") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """2
         |1 M
         |1 M 2 Z""".stripMargin
@@ -126,7 +126,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from file if any line is not well formatted") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """2
         |1 M
         | 1 M  2, Z """.stripMargin
@@ -136,7 +136,7 @@ class BatchOrderSuite extends FunSuite with EitherValues {
   }
 
   test("should fail to create from file if any line is empty") {
-    val order = BatchOrder.from(file(
+    val order = BatchOrder.from(text(
       """2
         |
         |1 M 2 G""".stripMargin
@@ -145,5 +145,5 @@ class BatchOrderSuite extends FunSuite with EitherValues {
     assert(order.left.value === ParseError("Malformed line: ''"))
   }
 
-  private def file(content: String): Source = Source.fromString(content)
+  private def text(content: String): Source = Source.fromString(content)
 }

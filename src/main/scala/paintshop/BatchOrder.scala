@@ -35,11 +35,11 @@ object BatchOrder {
     }
   }
 
-  private val ValidLineRegex = """^(\d+ [A-Z])( \d+ [A-Z])*$""".r
+  private val LineRegex = """^(\d+ [A-Z])( \d+ [A-Z])*$""".r
 
   private def parseLine(colorCount: Int, line: String): Either[ParseError, PaintSelection] = {
     line match {
-      case ValidLineRegex(_*) =>
+      case LineRegex(_*) =>
         val pairs = line.split(" ").grouped(2) // regex made sure all are pairs
         val selections = traverse(pairs){ case Array(c, s) =>
           (tryToInt(c), Sheen.from(s)) match {

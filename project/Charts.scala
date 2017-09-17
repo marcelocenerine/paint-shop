@@ -29,9 +29,7 @@ object Charts {
         }
 
         val xAxis = new LogarithmicAxis("Colors")
-        xAxis.setAllowNegativesFlag(true)
-        val yAxis = new LogarithmicAxis("Execution time (op/us)")
-        yAxis.setAllowNegativesFlag(true)
+        val yAxis = new LogarithmicAxis("Execution time (us/op)")
 
         val col = new YIntervalSeriesCollection()
         col.addSeries(ySeries)

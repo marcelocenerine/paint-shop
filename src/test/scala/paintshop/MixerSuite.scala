@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 
 class MixerSuite extends FunSuite {
 
-  test("should not find solution for empty selection input") {
+  test("should not find solution for empty input") {
     val mixedSelection = Mixer.mix(Nil)
 
     assert(mixedSelection === None)
@@ -17,6 +17,12 @@ class MixerSuite extends FunSuite {
     )
 
     assert(Mixer.mix(selections) === None)
+  }
+
+  test("should find solution for empty selection") {
+    val mixedSelection = Mixer.mix(List(PaintSelection(Set.empty)))
+
+    assert(mixedSelection === Some(PaintSelection(Set.empty)))
   }
 
   test("should find solution for mix 1") {

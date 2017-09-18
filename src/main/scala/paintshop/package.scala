@@ -40,6 +40,6 @@ package object misc {
 
   def traverse[A, L, R](xs: TraversableOnce[A])(op: A => Either[L, R]): Either[L, List[R]] =
     xs.foldRight(Right(Nil): Either[L, List[R]]) { (x, acc) =>
-      for (axs <- acc.right; opx <- op(x).right) yield opx :: axs
+      for (axs <- acc; opx <- op(x)) yield opx :: axs
     }
 }

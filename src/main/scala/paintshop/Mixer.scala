@@ -16,7 +16,7 @@ object Mixer {
               PaintSelection(mustHavePaints ++ mix.paints)
             }
           }
-          
+
         case None => None
       }
     }
@@ -28,6 +28,8 @@ object Mixer {
     var singletonFound = true
     var deadEndFound = false
     val mustHavePaints = mutable.Set.empty[Paint]
+    def sameColorDifferentSheen(a: Paint, b: Paint) = a.color == b.color && a.sheen != b.sheen
+    def isSingleton(xs: Set[_]) = xs.size == 1
 
     while (!selectionQueue.isEmpty && singletonFound && !deadEndFound) {
       val smallest = selectionQueue.dequeue()
@@ -35,22 +37,22 @@ object Mixer {
 
       if (paints.isEmpty) {
         // throw away
-      } else if (paints.size == 1) {
+      } else if (isSingleton(paints)) {
         val singleton = paints.head
         mustHavePaints += singleton
-        val updated = mutable.PriorityQueue.empty[PaintSelection]
+        val updatedQueue = mutable.PriorityQueue.empty[PaintSelection]
 
         // remove must-have paint from remaining selections
         while (!selectionQueue.isEmpty && !deadEndFound) {
           val ps = selectionQueue.dequeue().paints
 
-          if (ps.size == 1 && ps.head.color == singleton.color && ps.head.sheen != singleton.sheen) {
+          if (isSingleton(ps) && sameColorDifferentSheen(ps.head, singleton)) {
             deadEndFound = true // incompatible with other singleton
           } else {
-            updated += PaintSelection(ps.filterNot(_.color == singleton.color))
+            updatedQueue += PaintSelection(ps.filterNot(_.color == singleton.color))
           }
         }
-        selectionQueue = updated
+        selectionQueue = updatedQueue
       } else {
         selectionQueue += smallest
         singletonFound = false

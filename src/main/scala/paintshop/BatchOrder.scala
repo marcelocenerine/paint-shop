@@ -1,7 +1,8 @@
 package paintshop
 
 import scala.io.Source
-import scala.util.Try
+import paintshop.misc.traverse
+import paintshop.misc.TryInt
 
 class BatchOrder private (val selections: List[PaintSelection]) {
   def isEmpty: Boolean = selections.isEmpty
@@ -23,7 +24,7 @@ object BatchOrder {
   }
 
   private def parseOrders(header: String, lines: List[String]) = {
-    tryToInt(header) match {
+    header.toIntOption match {
       case Some(colorCount) if colorCount == 0 && lines.isEmpty => Right(BatchOrder.empty)
       case Some(colorCount) if colorCount > 0 =>
         if (!lines.isEmpty) {
@@ -46,7 +47,7 @@ object BatchOrder {
       case OrderRegex(_*) =>
         val pairs = line.split(" ").grouped(2) // regex made sure all are pairs
         val maybePaints = traverse(pairs){ case Array(c, s) =>
-          (tryToInt(c), Sheen.from(s)) match {
+          (c.toIntOption, Sheen.from(s)) match {
             case (Some(colorId), Some(sheen)) if colorId > 0 && colorId <= colorCount => Right(Paint(Color(colorId), sheen))
             case (_, Some(_)) => Left(ParseError(s"Invalid color '$c' in line '$line'"))
             case (_, None) => Left(ParseError(s"Invalid sheen '$s' in line '$line'"))
@@ -62,13 +63,6 @@ object BatchOrder {
       case _ => Left(ParseError(s"Malformed line: '$line'"))
     }
   }
-
-  private def tryToInt(s: String): Option[Int] = Try(s.toInt).toOption
-
-  private def traverse[A, L, R](xs: TraversableOnce[A])(op: A => Either[L, R]): Either[L, List[R]] =
-    xs.foldRight(Right(Nil): Either[L, List[R]]) { (x, acc) =>
-      for (axs <- acc.right; opx <- op(x).right) yield opx :: axs
-    }
 
   case class ParseError(msg: String)
 }

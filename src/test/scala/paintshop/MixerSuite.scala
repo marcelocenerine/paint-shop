@@ -73,5 +73,19 @@ class MixerSuite extends FunSuite {
         Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss), Paint(Color(4), Matte), Paint(Color(5), Gloss)))
       ))
     }
+
+    test(s"$name - should find solution for mix 4") {
+      val selections = List(
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss), Paint(Color(4), Matte), Paint(Color(5), Gloss))),
+        PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Gloss), Paint(Color(3), Matte), Paint(Color(4), Gloss), Paint(Color(5), Matte))),
+        PaintSelection(Set(Paint(Color(2), Matte), Paint(Color(3), Gloss), Paint(Color(4), Matte), Paint(Color(5), Gloss), Paint(Color(6), Matte))),
+        PaintSelection(Set(Paint(Color(3), Matte), Paint(Color(4), Gloss), Paint(Color(5), Matte), Paint(Color(6), Gloss), Paint(Color(7), Matte)))
+      )
+
+      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+        Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Gloss),
+        Paint(Color(5), Gloss), Paint(Color(6), Gloss), Paint(Color(7), Gloss)))
+      ))
+    }
   }
 }

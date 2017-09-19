@@ -9,7 +9,7 @@ object Mixer {
 
       if (distinctColors.isEmpty) Some(PaintSelection(Set.empty))
       else {
-        val sheensByIncreasingCost = Sheen.all.toSeq.sortWith((a, _) => a == Gloss)
+        val sheensByIncreasingCost = Sheen.all.toSeq.sorted
 
         def satisfiesAll(mix: Set[Paint]): Boolean = {
           def isHappy(asked: PaintSelection) = asked.paints.exists(mix.contains(_))

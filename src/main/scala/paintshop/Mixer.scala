@@ -9,6 +9,9 @@ import scala.util.Random
 
 sealed trait Mixer {
 
+  protected type Mix = Set[Paint]
+  protected type IndexedMix = Array[Paint]
+
   def mix(selections: List[PaintSelection]): Option[PaintSelection] = {
     if (selections.isEmpty) None
     else {
@@ -28,7 +31,7 @@ sealed trait Mixer {
 
   protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection]
 
-  private def reduceSearchSpace(selections: Set[PaintSelection]): Option[(Set[Paint], Set[PaintSelection])] = {
+  private def reduceSearchSpace(selections: Set[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
     implicit val ordering = Ordering.by[PaintSelection, Int](_.paints.size).reverse // small selections at the top
     var selectionQueue = mutable.PriorityQueue.empty[PaintSelection] ++ selections
     var singletonFound = true
@@ -68,13 +71,13 @@ sealed trait Mixer {
     if (deadEndFound) None else Some(mustHavePaints.toSet -> selectionQueue.toSet)
   }
 
-  protected def satisfiesAll(selections: Set[PaintSelection])(mix: Set[Paint]): Boolean = {
+  protected def satisfiesAll(selections: Set[PaintSelection])(mix: Mix): Boolean = {
     def isHappy(asked: PaintSelection) = asked.paints.exists(p => mix.contains(p))
 
     selections.forall(isHappy)
   }
 
-  protected def cost(mix: Set[Paint]): Int = mix.foldRight(0)((p, totalCost) => totalCost + p.sheen.cost)
+  protected def cost(mix: Mix): Int = mix.foldRight(0)((p, totalCost) => totalCost + p.sheen.cost)
 }
 
 
@@ -91,9 +94,9 @@ object BruteForceMixer extends Mixer {
     feasibleSolutions.sortBy(cost).headOption.map(PaintSelection)
   }
 
-  private def findFeasibleSolutions(colors: Set[Color], sheens: Set[Sheen], p: Set[Paint] => Boolean): List[Set[Paint]] = {
+  private def findFeasibleSolutions(colors: Set[Color], sheens: Set[Sheen], p: Mix => Boolean): List[Mix] = {
     @tailrec
-    def combs(currentColors: List[Color], partialCombs: List[Set[Paint]]): List[Set[Paint]] = {
+    def combs(currentColors: List[Color], partialCombs: List[Mix]): List[Mix] = {
       currentColors match {
         case head :: tail =>
           val newPartialCombs = for {
@@ -131,52 +134,69 @@ class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.system
     val distinctColors = for ( s <- selections; p <- s.paints ) yield p.color
     val deadline = clock.millis() + localSearchDuration.toMillis
 
-    def scoreCalculator(mix: Set[Paint]): Int = if (satisfiesAll(selections)(mix)) -cost(mix) else Int.MinValue
+    def scoreCalculator(mix: Mix): Int = if (satisfiesAll(selections)(mix)) -cost(mix) else Int.MinValue
     def stopCondition: Boolean = clock.millis() > deadline
 
     val bestSolutionFound = search(distinctColors, Sheen.all, scoreCalculator, stopCondition)
     if (satisfiesAll(selections)(bestSolutionFound)) Some(PaintSelection(bestSolutionFound)) else None
   }
 
-  private def search(colors: Set[Color], sheens: Set[Sheen], scoreCalc: Set[Paint] => Int, stopCond: => Boolean): Set[Paint] = {
-    var currentSolution: Array[Paint] = initialSolution(colors, sheens)
+  private def search(colors: Set[Color], sheens: Set[Sheen], scoreCalc: Mix => Int, stopCond: => Boolean): Mix = {
+    var currentSolution: IndexedMix = initialSolution(colors, sheens)
     var bestSolution = currentSolution
     var bestSolutionScore: Int = scoreCalc(bestSolution.toSet)
     val tabuList = new TabuList(TabuSize)
     tabuList.add(bestSolution.toSet)
 
     while (!stopCond) {
-      currentSolution = randomNeighbor(currentSolution, sheens)
-      val candidate = currentSolution.toSet
+      val neighbors = randomNeighbors(currentSolution, sheens)
+      val (bestCandidate, candidateScore) = pickBestCandidate(neighbors, tabuList, scoreCalc)
 
-      if (!tabuList.contains(candidate)) {
-        val score = scoreCalc(candidate)
-
-        if (score > bestSolutionScore) {
-          bestSolution = currentSolution
-          bestSolutionScore = score
-        }
-
-        tabuList.add(candidate)
+      if (candidateScore > bestSolutionScore) {
+        bestSolution = bestCandidate
+        bestSolutionScore = candidateScore
       }
+
+      tabuList.add(bestCandidate.toSet)
+      currentSolution = bestCandidate
     }
 
     bestSolution.toSet
   }
 
-  private def initialSolution(colors: Set[Color], sheens: Set[Sheen]): Array[Paint] = {
+  private def initialSolution(colors: Set[Color], sheens: Set[Sheen]): IndexedMix = {
     val cheapestSheen = sheens.min
     colors.map(color => Paint(color, cheapestSheen)).toArray
   }
 
-  private def randomNeighbor(sol: Array[Paint], sheens: Set[Sheen]): Array[Paint] = {
-    val neighbor = sol.clone()
-    val nr = random.nextInt(neighbor.length)
-    val oldPaint = sol(nr)
-    val diffSheens = (sheens - oldPaint.sheen).toArray
-    val sr = random.nextInt(diffSheens.length)
-    neighbor(nr) = Paint(oldPaint.color, diffSheens(sr))
-    neighbor
+  private def randomNeighbors(originalSelection: IndexedMix, sheens: Set[Sheen]): Seq[IndexedMix] = {
+    val moveIndex = random.nextInt(originalSelection.length)
+    val oldPaint = originalSelection(moveIndex) // chooses one paint randomly
+
+    (sheens - oldPaint.sheen).toSeq.map { distinctSheen =>
+      val neighbor = originalSelection.clone()
+      neighbor(moveIndex) = Paint(oldPaint.color, distinctSheen) // sets a different sheen
+      neighbor
+    }
+  }
+
+  private def pickBestCandidate(candidates: Seq[IndexedMix], tabuList: TabuList, scoreCalc: Mix => Int): (IndexedMix, Int) = {
+    var best = candidates.head
+    var bestScore = scoreCalc(best.toSet)
+
+    for (candidate <- candidates.tail) {
+      val asSet = candidate.toSet
+
+      if (!tabuList.contains(asSet)) {
+        val score = scoreCalc(asSet)
+
+        if (score > bestScore) {
+          best = candidate
+          bestScore = score
+        }
+      }
+    }
+    (best, bestScore)
   }
 
   private class TabuList(size: Int) {

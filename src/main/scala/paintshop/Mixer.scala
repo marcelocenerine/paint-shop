@@ -78,6 +78,11 @@ sealed trait Mixer {
 }
 
 
+/**
+  * Explores the search space using an exhaustive search (brute-force) algorithm. The time complexity of this algorithm
+  * is `O(n^m)` - exponential - in the worst case scenario, where n = sheens and m = colors. This characteristic
+  * makes it not scalable to large inputs.
+  */
 object BruteForceMixer extends Mixer {
 
   protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
@@ -86,15 +91,6 @@ object BruteForceMixer extends Mixer {
     feasibleSolutions.sortBy(cost).headOption.map(PaintSelection)
   }
 
-  /**
-    * Explores the search space using exhaustive search (brute-force). The time complexity of this algorithm is
-    * `O(n^m)` - exponential - in the worst case scenario, where n = sheens and m = colors.
-    *
-    * @param colors - colors available in the palette
-    * @param sheens - sheens available in the palette
-    * @param p - predicate that returns true if a given solution is feasible
-    * @return a list of feasible solutions or empty if none found
-    */
   private def findFeasibleSolutions(colors: Set[Color], sheens: Set[Sheen], p: Set[Paint] => Boolean): List[Set[Paint]] = {
     @tailrec
     def combs(currentColors: List[Color], partialCombs: List[Set[Paint]]): List[Set[Paint]] = {
@@ -114,6 +110,18 @@ object BruteForceMixer extends Mixer {
   }
 }
 
+
+/**
+  * Explores the search space using the Tabu Search meta-heuristic: https://en.wikipedia.org/wiki/Tabu_search
+  *
+  * This algorithm is suitable for large inputs where the search space is just too big to be explored via exhaustive
+  * search. Given that the algorithm may not visit all possible combinations in the search space, it's not guaranteed
+  * that it will find an optimal nor a feasible solution. The more time is given to the algorithm, the better the
+  * solution tends to be.
+  *
+  * @param localSearchDuration - max amount of time to be spent in the local search
+  * @param clock - system clock
+  */
 class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.systemDefaultZone()) extends Mixer {
 
   private val TabuSize = 1000
@@ -157,7 +165,7 @@ class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.system
   }
 
   private def initialSolution(colors: Set[Color], sheens: Set[Sheen]): Array[Paint] = {
-    val cheapestSheen = sheens.toSeq.sorted.head
+    val cheapestSheen = sheens.min
     colors.map(color => Paint(color, cheapestSheen)).toArray
   }
 

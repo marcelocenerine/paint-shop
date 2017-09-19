@@ -34,8 +34,8 @@ sealed trait Mixer {
   /**
     * Reduces the search spaces by eliminating singleton selections which can only be satisfied by a unique value.
     * This reduction is performed recursively so that other multi-value selections can become singleton during the
-    * the reduction process. Unfeasible combinations derived from singleton selections are also identified at this
-    * stage, which causes pointless execution of subsequent phases to be avoided.
+    * reduction process. Unfeasible combinations derived from singleton selections are also identified at this stage,
+    * which prevents pointless execution of subsequent phases.
     */
   private def reduceSearchSpace(selections: Set[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
     implicit val ordering = Ordering.by[PaintSelection, Int](_.paints.size).reverse // small selections at the top

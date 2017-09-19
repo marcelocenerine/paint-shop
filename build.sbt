@@ -3,7 +3,8 @@ name := "paint-shop"
 version := "1.0"
 
 lazy val commonSettings = Seq(
-  scalaVersion := "2.12.1"
+  scalaVersion := "2.12.1",
+  scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 )
 
 lazy val root = (project in file(".")).settings(

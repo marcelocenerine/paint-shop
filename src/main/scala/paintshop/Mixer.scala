@@ -1,9 +1,13 @@
 package paintshop
 
+import java.time.Clock
+
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.concurrent.duration.Duration
+import scala.util.Random
 
-object Mixer {
+sealed trait Mixer {
 
   def mix(selections: List[PaintSelection]): Option[PaintSelection] = {
     if (selections.isEmpty) None
@@ -22,6 +26,8 @@ object Mixer {
     }
   }
 
+  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection]
+
   private def reduceSearchSpace(selections: Set[PaintSelection]): Option[(Set[Paint], Set[PaintSelection])] = {
     implicit val ordering = Ordering.by[PaintSelection, Int](_.paints.size).reverse // small selections at the top
     var selectionQueue = mutable.PriorityQueue.empty[PaintSelection] ++ selections
@@ -31,7 +37,7 @@ object Mixer {
     def sameColorDifferentSheen(a: Paint, b: Paint) = a.color == b.color && a.sheen != b.sheen
     def isSingleton(xs: Set[_]) = xs.size == 1
 
-    while (!selectionQueue.isEmpty && singletonFound && !deadEndFound) {
+    while (selectionQueue.nonEmpty && singletonFound && !deadEndFound) {
       val smallest = selectionQueue.dequeue()
       val paints = smallest.paints
 
@@ -43,7 +49,7 @@ object Mixer {
         val updatedQueue = mutable.PriorityQueue.empty[PaintSelection]
 
         // remove must-have paint from remaining selections
-        while (!selectionQueue.isEmpty && !deadEndFound) {
+        while (selectionQueue.nonEmpty && !deadEndFound) {
           val ps = selectionQueue.dequeue().paints
 
           if (isSingleton(ps) && sameColorDifferentSheen(ps.head, singleton)) {
@@ -62,16 +68,22 @@ object Mixer {
     if (deadEndFound) None else Some(mustHavePaints.toSet -> selectionQueue.toSet)
   }
 
-  private def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
-    def satisfiesAll(mix: Set[Paint]): Boolean = {
-      def isHappy(asked: PaintSelection) = asked.paints.exists(mix.contains(_))
+  protected def satisfiesAll(selections: Set[PaintSelection])(mix: Set[Paint]): Boolean = {
+    def isHappy(asked: PaintSelection) = asked.paints.exists(p => mix.contains(p))
 
-      selections.forall(isHappy)
-    }
+    selections.forall(isHappy)
+  }
 
+  protected def cost(mix: Set[Paint]): Int = mix.foldRight(0)((p, totalCost) => totalCost + p.sheen.cost)
+}
+
+
+object BruteForceMixer extends Mixer {
+
+  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
     val distinctColors = for ( s <- selections; p <- s.paints) yield p.color
-    val solutions = findFeasibleSolutions(distinctColors, Sheen.all, satisfiesAll)
-    solutions.sortBy(s => s.paints.foldRight(0)((p, totalCost) => totalCost + p.sheen.cost)).headOption
+    val feasibleSolutions = findFeasibleSolutions(distinctColors, Sheen.all, satisfiesAll(selections))
+    feasibleSolutions.sortBy(cost).headOption.map(PaintSelection)
   }
 
   /**
@@ -83,9 +95,9 @@ object Mixer {
     * @param p - predicate that returns true if a given solution is feasible
     * @return a list of feasible solutions or empty if none found
     */
-  private def findFeasibleSolutions(colors: Set[Color], sheens: Set[Sheen], p: Set[Paint] => Boolean): List[PaintSelection] = {
+  private def findFeasibleSolutions(colors: Set[Color], sheens: Set[Sheen], p: Set[Paint] => Boolean): List[Set[Paint]] = {
     @tailrec
-    def combs(currentColors: List[Color], partialCombs: List[Set[Paint]]): List[PaintSelection] = {
+    def combs(currentColors: List[Color], partialCombs: List[Set[Paint]]): List[Set[Paint]] = {
       currentColors match {
         case head :: tail =>
           val newPartialCombs = for {
@@ -94,10 +106,83 @@ object Mixer {
           } yield comb + Paint(head, sheen)
           combs(tail, newPartialCombs)
 
-        case Nil => partialCombs.filter(p).map(PaintSelection)
+        case Nil => partialCombs.filter(p)
       }
     }
 
     combs(colors.toList, List(Set.empty))
+  }
+}
+
+class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.systemDefaultZone()) extends Mixer {
+
+  private val TabuSize = 1000
+  private val random = new Random()
+
+  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
+    val distinctColors = for ( s <- selections; p <- s.paints ) yield p.color
+    val deadline = clock.millis() + localSearchDuration.toMillis
+
+    def scoreCalculator(mix: Set[Paint]): Int = if (satisfiesAll(selections)(mix)) -cost(mix) else Int.MinValue
+    def stopCondition: Boolean = clock.millis() > deadline
+
+    val bestSolutionFound = search(distinctColors, Sheen.all, scoreCalculator, stopCondition)
+    if (satisfiesAll(selections)(bestSolutionFound)) Some(PaintSelection(bestSolutionFound)) else None
+  }
+
+  private def search(colors: Set[Color], sheens: Set[Sheen], scoreCalc: Set[Paint] => Int, stopCond: => Boolean): Set[Paint] = {
+    var currentSolution: Array[Paint] = initialSolution(colors, sheens)
+    var bestSolution = currentSolution
+    var bestSolutionScore: Int = scoreCalc(bestSolution.toSet)
+    val tabuList = new TabuList(TabuSize)
+    tabuList.add(bestSolution.toSet)
+
+    while (!stopCond) {
+      currentSolution = randomNeighbor(currentSolution, sheens)
+      val candidate = currentSolution.toSet
+
+      if (!tabuList.contains(candidate)) {
+        val score = scoreCalc(candidate)
+
+        if (score > bestSolutionScore) {
+          bestSolution = currentSolution
+          bestSolutionScore = score
+        }
+
+        tabuList.add(candidate)
+      }
+    }
+
+    bestSolution.toSet
+  }
+
+  private def initialSolution(colors: Set[Color], sheens: Set[Sheen]): Array[Paint] = {
+    val cheapestSheen = sheens.toSeq.sorted.head
+    colors.map(color => Paint(color, cheapestSheen)).toArray
+  }
+
+  private def randomNeighbor(sol: Array[Paint], sheens: Set[Sheen]): Array[Paint] = {
+    val neighbor = sol.clone()
+    val nr = random.nextInt(neighbor.length)
+    val oldPaint = sol(nr)
+    val diffSheens = (sheens - oldPaint.sheen).toArray
+    val sr = random.nextInt(diffSheens.length)
+    neighbor(nr) = Paint(oldPaint.color, diffSheens(sr))
+    neighbor
+  }
+
+  private class TabuList(size: Int) {
+
+    private val solutionTabuQueue = mutable.Queue.fill[Any](size)(null)
+    private val solutionTabuSet = mutable.Set.empty[Any] // for fast search
+
+    def contains(s: Any): Boolean = solutionTabuSet.contains(s)
+
+    def add(s: Any): Unit = {
+      val removed = solutionTabuQueue.dequeue()
+      solutionTabuSet - removed
+      solutionTabuQueue += s
+      solutionTabuSet += s
+    }
   }
 }

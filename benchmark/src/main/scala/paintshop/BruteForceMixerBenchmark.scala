@@ -11,7 +11,7 @@ import org.openjdk.jmh.infra.Blackhole
 @Warmup(iterations = 15)
 @Measurement(iterations = 15)
 @State(Scope.Benchmark)
-class MixerBenchmark {
+class BruteForceMixerBenchmark {
 
   @Param(scala.Array("1", "2", "3", "4", "5", "10", "15", "20"))
   var colors: Int = _
@@ -28,7 +28,7 @@ class MixerBenchmark {
 
   @Benchmark
   def feasible(bh: Blackhole): Unit = {
-    bh.consume(Mixer.mix(selections))
+    bh.consume(BruteForceMixer.mix(selections))
   }
 
   @Benchmark
@@ -36,6 +36,6 @@ class MixerBenchmark {
     val unfeasibleSelection =
       PaintSelection(Set(Paint(Color(1), Gloss))) :: PaintSelection(Set(Paint(Color(1), Matte))) :: selections
 
-    bh.consume(Mixer.mix(unfeasibleSelection))
+    bh.consume(BruteForceMixer.mix(unfeasibleSelection))
   }
 }

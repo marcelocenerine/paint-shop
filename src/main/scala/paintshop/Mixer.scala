@@ -1,5 +1,7 @@
 package paintshop
 
+import scala.annotation.tailrec
+
 object Mixer {
 
   def mix(selections: List[PaintSelection]): Option[PaintSelection] = {
@@ -9,49 +11,42 @@ object Mixer {
 
       if (distinctColors.isEmpty) Some(PaintSelection(Set.empty))
       else {
-        val sheensByIncreasingCost = Sheen.all.toSeq.sorted
-
         def satisfiesAll(mix: Set[Paint]): Boolean = {
           def isHappy(asked: PaintSelection) = asked.paints.exists(mix.contains(_))
 
           selections.forall(isHappy)
         }
 
-        findOptimalSelection(distinctColors, sheensByIncreasingCost, satisfiesAll)
+        val solutions = findFeasibleSolutions(distinctColors, Sheen.all, satisfiesAll)
+        solutions.sortBy(sel => sel.paints.foldRight(0)((p, acc) => acc + p.sheen.cost)).headOption
       }
     }
   }
 
   /**
-    * Lazily explores the search space using exhaustive search (brute-force). It expects the `sheens` to be ordered
-    * by increasing cost, so that the cheapest combinations are evaluated first. This also guarantees that the first
-    * feasible solution found is also one of the optimal solutions.
+    * Explores the search space using exhaustive search (brute-force). The time complexity of this algorithm is
+    * `O(n^m)` - exponential - in the worst case scenario, where n = sheens and m = colors.
     *
-    * The time complexity of this algorithm is `O(n^m)` - exponential - in the worst case scenario, where n = sheens
-    * and m = colors.
-    *
-    * This method is not tail recursive. This is an intentional design decision that trades-off memory allocation
-    * vs being stack-friendly. This, however, is unlikely to be an issue as the max stack depth will be equal
-    * to `colors.size`.
-    *
-    * @param colors - colors available in the palette.
-    * @param sheens - sheens available in the palette sorted by increasing cost.
-    * @param p - predicate that returns true if a given solution is feasible.
-    * @return the optimal solution that satisfies the predicate `p`. None if no feasible solution is found.
+    * @param colors - colors available in the palette
+    * @param sheens - sheens available in the palette
+    * @param p - predicate that returns true if a given solution is feasible
+    * @return a list of feasible solutions or empty if none found
     */
-  private def findOptimalSelection(colors: Set[Color], sheens: Seq[Sheen], p: Set[Paint] => Boolean): Option[PaintSelection] = {
-    def comb(currentColors: List[Color], partialComb: Set[Paint]): Option[PaintSelection] = {
+  private def findFeasibleSolutions(colors: Set[Color], sheens: Set[Sheen], p: Set[Paint] => Boolean): List[PaintSelection] = {
+    @tailrec
+    def combs(currentColors: List[Color], partialCombs: List[Set[Paint]]): List[PaintSelection] = {
       currentColors match {
         case head :: tail =>
-          (for {
-            sheen <- sheens.toStream // lazily explores the combinations
-            sel <- comb(tail, partialComb + Paint(head, sheen))
-          } yield sel).headOption // stops at the (possible) optimal solution
+          val newPartialCombs = for {
+            comb <- partialCombs
+            sheen <- sheens
+          } yield comb + Paint(head, sheen)
+          combs(tail, newPartialCombs)
 
-        case Nil => if (p(partialComb)) Some(PaintSelection(partialComb)) else None
+        case Nil => partialCombs.filter(p).map(PaintSelection)
       }
     }
 
-    comb(colors.toList, Set.empty)
+    combs(colors.toList, List(Set.empty))
   }
 }

@@ -25,7 +25,7 @@ below: *[Note: axis are in logarithm scale and running times are measured in mic
 >```
 >benchmark/charts
 >```
->The charts are generated under `paint-shop/benchmark/target/scala-2.12/`
+>The results are shown on the terminal and charts generated under `paint-shop/benchmark/target/scala-2.12/`
 
 
 Throwing more parallelism (threads or computers) doesn't help much for large data sets. A more practical and scalable 

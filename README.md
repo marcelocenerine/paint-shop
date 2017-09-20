@@ -16,7 +16,7 @@ Although they may seem simple to solve at a first sight, in reality those proble
 NP-complete or harder. As a result, there is no silver bullet to find the optimal solution in reasonable time. Even
 relatively small data sets can produce a huge search space that any brute force algorithm would take too long to traverse.
 As an example, the running time for the **Paint Shop** problem grows exponentially as can be seen in the micro benchmark
-below: *[Note: axis are in logarithm scale and running times are measured in microseconds]*
+below: *[Note: axis are in logarithmic scale and running times are measured in microseconds]*
 
 ![Brute force benchmark](src/main/resources/misc/BruteForceMixerBenchmark.png)
 

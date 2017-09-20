@@ -61,8 +61,10 @@ where `n` = sheens (2) and `m` = colors. This strategy is only indicated for rel
 #### Tabu Search
 Explores the search space using a simplified implementation of the [Tabu Search](https://en.wikipedia.org/wiki/Tabu_search)
 meta-heuristic. This strategy is suitable for large inputs where the search space is too big to be explored via exhaustive
-search. Given that the algorithm may not visit all possible combinations in the search space, it does not guarantee to find 
-an optimal nor a feasible solution. The more time is given to the algorithm, the better the solution will likely be.
+search. Given that the algorithm may not visit all possible combinations in the search space, **it does not guarantee to find 
+an optimal nor a feasible solution**. The more time is given to the algorithm, the better the solution will likely be.
+Moreover, it has to be given a condition to stop the search. Currently it only supports a time-based condition but others
+(e.g. max iterations, max iterations without improvement, etc) can be easily introduced. 
 
 ### Usage
 #### Requirements
@@ -83,12 +85,13 @@ run <path to file> --tabu-search [<timeout in secs>]
 **timeout defaults to 5 seconds if not provided*
 
 >*Note:* There are some sample input files available in the classpath under `/samples/` that can be used for testing.
+The `20x1000_feasible.txt` and `40x10000_feasible.txt` files in particular can be used to see the difference in
+running time between both algorithms.
 
 ### Bonus
 
 - **Extensibility:** new sheens can be introduced without requiring any changes to the parsing/solving algorithms. Just
-need to add a new subtype for the `Sheen` trait
+need to add a new subtype for the `Sheen` sealed trait
 - **Benchmarks:** [JMH](http://openjdk.java.net/projects/code-tools/jmh) benchmarks for the brute force algorithm with
 chart generation available in the `benchmark` submodule
-
  

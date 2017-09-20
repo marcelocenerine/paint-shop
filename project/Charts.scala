@@ -10,6 +10,9 @@ import org.jfree.data.xy.{YIntervalSeries, YIntervalSeriesCollection}
 import play.api.libs.json._
 import sbt._
 
+/**
+  * Adapted from https://github.com/scala/collection-strawman
+  */
 object Charts {
 
   def apply(jmhReport: File, targetDir: File): Unit = {

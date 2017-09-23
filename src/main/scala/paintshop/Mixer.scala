@@ -12,6 +12,9 @@ sealed trait Mixer {
   protected type Mix = Set[Paint]
   protected type IndexedMix = Array[Paint]
 
+  protected val sheens: Set[Sheen] = Sheen.all
+  protected lazy val cheapestSheen: Sheen = sheens.min
+
   def mix(selections: List[PaintSelection]): Option[PaintSelection] = {
     if (selections.isEmpty) None
     else {
@@ -32,54 +35,77 @@ sealed trait Mixer {
   protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection]
 
   /**
-    * Reduces the search spaces by eliminating singleton selections which can only be satisfied by a unique value.
+    * Reduces the search space by eliminating singleton selections which can only be satisfied by a unique value.
     * This reduction is performed recursively so that other multi-value selections can become singleton during the
     * reduction process. Unfeasible combinations derived from singleton selections are also identified at this stage,
     * which prevents pointless execution of subsequent phases.
     */
   private def reduceSearchSpace(selections: Set[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
-    implicit val ordering = Ordering.by[PaintSelection, Int](_.paints.size).reverse // small selections at the top
-    var selectionQueue = mutable.PriorityQueue.empty[PaintSelection] ++ selections
+    val fixedPaints = mutable.Set.empty[Paint]
+    val fixedColors = mutable.Set.empty[Color]
+    val colorToSelCount = mutable.Map.empty ++ groupedByColor(selections).mapValues(_.size)
+    var reducedSelections = mutable.Set.empty ++ selections
     var singletonFound = true
-    var deadEndFound = false
-    val mustHavePaints = mutable.Set.empty[Paint]
-    def sameColorDifferentSheen(a: Paint, b: Paint) = a.color == b.color && a.sheen != b.sheen
-    def isSingleton(xs: Set[_]) = xs.size == 1
+    var conflictFound = false
 
-    while (selectionQueue.nonEmpty && singletonFound && !deadEndFound) {
-      val smallest = selectionQueue.dequeue()
-      val paints = smallest.paints
+    while (reducedSelections.nonEmpty && singletonFound && !conflictFound) {
+      singletonFound = false
+      val visited = mutable.Set.empty[PaintSelection]
 
-      if (paints.isEmpty) {
-        // throw away
-      } else if (isSingleton(paints)) {
-        val singleton = paints.head
-        mustHavePaints += singleton
-        val updatedQueue = mutable.PriorityQueue.empty[PaintSelection]
+      for (selection <- reducedSelections) {
+        val paints = selection.paints
 
-        // remove must-have paint from remaining selections
-        while (selectionQueue.nonEmpty && !deadEndFound) {
-          val ps = selectionQueue.dequeue().paints
+        if (paints.size == 1) {
+          val singleton = paints.head
 
-          if (isSingleton(ps) && sameColorDifferentSheen(ps.head, singleton)) {
-            deadEndFound = true // incompatible with other singleton
+          if (fixedColors.contains(singleton.color)) {
+            if (!fixedPaints.contains(singleton)) conflictFound = true // incompatible with other singleton
+            else colorToSelCount(singleton.color) -= 1
           } else {
-            updatedQueue += PaintSelection(ps.filterNot(_.color == singleton.color))
+            fixedPaints += singleton
+            fixedColors += singleton.color
+            colorToSelCount(singleton.color) -= 1
+          }
+          singletonFound = true
+        } else if (paints.nonEmpty) {
+          val isSatisfied = paints.exists(fixedPaints.contains)
+
+          if (isSatisfied) {
+            for (p <- paints) {
+              if (colorToSelCount(p.color) == 1 && !fixedColors.contains(p.color)) {
+                fixedPaints += Paint(p.color, cheapestSheen) // not found in any other selection. Can be the cheapest
+                fixedColors += p.color
+              }
+              colorToSelCount(p.color) -= 1
+            }
+          } else {
+            val (fixed, nonFixed) = paints.partition(p => fixedColors.contains(p.color))
+
+            if (fixed.nonEmpty) {
+              fixed.foreach(p => colorToSelCount(p.color) -= 1)
+              if (nonFixed.nonEmpty) visited += PaintSelection(nonFixed)
+            } else {
+              visited += selection // not satisfied nor could be reduced. Put it back
+            }
           }
         }
-        selectionQueue = updatedQueue
-      } else {
-        selectionQueue += smallest
-        singletonFound = false
       }
+      reducedSelections = visited
     }
 
-    if (deadEndFound) None else Some(mustHavePaints.toSet -> selectionQueue.toSet)
+    if (conflictFound) None else Some(fixedPaints.toSet, reducedSelections.toSet)
   }
+
+  protected def allColors(selections: Set[PaintSelection]): Set[Color] =
+    for (s <- selections; p <- s.paints) yield p.color
+
+  private def groupedByColor(selections: Set[PaintSelection]): Map[Color, Set[PaintSelection]] =
+    selections.flatMap(sel => sel.paints.map(paint => (paint.color, sel)))
+      .groupBy { case (color, _) => color }
+      .mapValues(grouped => grouped.map { case (_, sel) => sel })
 
   protected def satisfiesAll(selections: Set[PaintSelection])(mix: Mix): Boolean = {
     def isHappy(asked: PaintSelection) = asked.paints.exists(p => mix.contains(p))
-
     selections.forall(isHappy)
   }
 
@@ -95,12 +121,12 @@ sealed trait Mixer {
 object BruteForceMixer extends Mixer {
 
   protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
-    val distinctColors = for ( s <- selections; p <- s.paints) yield p.color
-    val feasibleSolutions = findFeasibleSolutions(distinctColors, Sheen.all, satisfiesAll(selections))
+    val distinctColors = allColors(selections)
+    val feasibleSolutions = findFeasibleSolutions(distinctColors, satisfiesAll(selections))
     feasibleSolutions.sortBy(cost).headOption.map(PaintSelection)
   }
 
-  private def findFeasibleSolutions(colors: Set[Color], sheens: Set[Sheen], p: Mix => Boolean): List[Mix] = {
+  private def findFeasibleSolutions(colors: Set[Color], p: Mix => Boolean): List[Mix] = {
     @tailrec
     def combs(currentColors: List[Color], partialCombs: List[Mix]): List[Mix] = {
       currentColors match {
@@ -137,25 +163,25 @@ class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.system
   private val random = new Random()
 
   protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
-    val distinctColors = for ( s <- selections; p <- s.paints ) yield p.color
+    val distinctColors = allColors(selections)
     val deadline = clock.millis() + localSearchDuration.toMillis
 
     def scoreCalculator(mix: Mix): Int = if (satisfiesAll(selections)(mix)) -cost(mix) else Int.MinValue
     def stopCondition: Boolean = clock.millis() > deadline
 
-    val bestSolutionFound = search(distinctColors, Sheen.all, scoreCalculator, stopCondition)
+    val bestSolutionFound = search(distinctColors, scoreCalculator, stopCondition)
     if (satisfiesAll(selections)(bestSolutionFound)) Some(PaintSelection(bestSolutionFound)) else None
   }
 
-  private def search(colors: Set[Color], sheens: Set[Sheen], scoreCalc: Mix => Int, stopCond: => Boolean): Mix = {
-    var currentSolution: IndexedMix = initialSolution(colors, sheens)
+  private def search(colors: Set[Color], scoreCalc: Mix => Int, stopCond: => Boolean): Mix = {
+    var currentSolution: IndexedMix = initialSolution(colors)
     var bestSolution = currentSolution
     var bestSolutionScore: Int = scoreCalc(bestSolution.toSet)
     val tabuList = new TabuList(TabuSize)
     tabuList.add(bestSolution.toSet)
 
     while (!stopCond) {
-      val neighbors = randomNeighbors(currentSolution, sheens)
+      val neighbors = randomNeighbors(currentSolution)
       val (bestCandidate, candidateScore) = pickBestCandidate(neighbors, tabuList, scoreCalc)
 
       if (candidateScore > bestSolutionScore) {
@@ -170,18 +196,15 @@ class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.system
     bestSolution.toSet
   }
 
-  private def initialSolution(colors: Set[Color], sheens: Set[Sheen]): IndexedMix = {
-    val cheapestSheen = sheens.min
-    colors.map(color => Paint(color, cheapestSheen)).toArray
-  }
+  private def initialSolution(colors: Set[Color]): IndexedMix = colors.map(Paint(_, cheapestSheen)).toArray
 
-  private def randomNeighbors(originalSelection: IndexedMix, sheens: Set[Sheen]): Seq[IndexedMix] = {
+  private def randomNeighbors(originalSelection: IndexedMix): Seq[IndexedMix] = {
     val moveIndex = random.nextInt(originalSelection.length)
     val oldPaint = originalSelection(moveIndex) // chooses one paint randomly
 
-    (sheens - oldPaint.sheen).toSeq.map { distinctSheen =>
+    (sheens - oldPaint.sheen).toSeq.map { diffSheen =>
       val neighbor = originalSelection.clone()
-      neighbor(moveIndex) = Paint(oldPaint.color, distinctSheen) // sets a different sheen
+      neighbor(moveIndex) = Paint(oldPaint.color, diffSheen) // sets a different sheen
       neighbor
     }
   }

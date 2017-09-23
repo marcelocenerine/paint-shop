@@ -51,7 +51,7 @@ These strategies can be chosen via command line argument (details below).
 Before even entering the search space exploration phase, the `Mixer` attempts to reduce the search space by eliminating
 values (paints) that are fixed (customer selection with single paint). This reduction is performed recursively so that
 other multi-value selections can become singleton during the reduction process. Unfeasible combinations derived from
-singleton selections are also identified at this stage, which prevents pointless execution of subsequent phases. 
+singleton selections are also identified at this stage, which prevents pointless execution of the subsequent phase.  
 
 #### Brute Force
 Explores the search space via exhaustive search and guarantees to find the optimal solution (if there is any) as long

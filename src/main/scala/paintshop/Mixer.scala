@@ -2,7 +2,6 @@ package paintshop
 
 import java.time.Clock
 
-import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.util.Random
@@ -79,19 +78,19 @@ sealed trait Mixer {
           if (isSatisfied) {
             for (p <- paints) {
               if (colorToSelCount(p.color) == 1 && !fixedColors.contains(p.color)) {
-                fixedPaints += Paint(p.color, cheapestSheen) // not found in any other selection. Can be the cheapest
+                fixedPaints += Paint(p.color, cheapestSheen) // not found in any other selection. Sheen can be the cheapest
                 fixedColors += p.color
               }
               colorToSelCount(p.color) -= 1
             }
           } else {
-            val (fixed, nonFixed) = paints.partition(p => fixedColors.contains(p.color))
+            val (fixed, remaining) = paints.partition(p => fixedColors.contains(p.color))
 
             if (fixed.nonEmpty) {
               fixed.foreach(p => colorToSelCount(p.color) -= 1)
 
-              if (nonFixed.nonEmpty) {
-                visited += PaintSelection(nonFixed)
+              if (remaining.nonEmpty) {
+                visited += PaintSelection(remaining)
                 reduced = true
               }
             } else {
@@ -123,36 +122,54 @@ sealed trait Mixer {
 
 
 /**
-  * Explores the search space using an exhaustive search (brute-force) algorithm. The time complexity of this algorithm
-  * is `O(n^m)` - exponential - in the worst case scenario, where n = sheens and m = colors. This characteristic
-  * makes it not scalable to large inputs.
+  * Explores the search space using an exhaustive search (brute-force) algorithm to locate a feasible solution. The
+  * search tree is traversed in depth-first order so that the cheapest combinations in each subtree are visited first.
+  * Once a feasible solution is found, it turns into a backtracking algorithm to avoid further exploration of more
+  * expensive partial solutions that can't improve the best solution found so far. This optimization can greatly reduce
+  * the remaining search space and consequently reduce the running time.
+  *
+  * The time complexity of this algorithm is `O(n^m)` - exponential - in the worst case scenario, where n = sheens
+  * and m = colors. This characteristic makes it not scalable for large inputs.
   */
 object BruteForceMixer extends Mixer {
 
   protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
     val distinctColors = allColors(selections)
-    val feasibleSolutions = findFeasibleSolutions(distinctColors, satisfiesAll(selections))
-    feasibleSolutions.sortBy(cost).headOption.map(PaintSelection)
+    val sheensOrderedByCost = sheens.toList.sorted
+    val optimalSolution = findOptimalSolution(distinctColors, sheensOrderedByCost, satisfiesAll(selections))
+    optimalSolution.map { case (mix, _) => PaintSelection(mix) }
   }
 
-  private def findFeasibleSolutions(colors: Set[Color], p: Mix => Boolean): List[Mix] = {
-    @tailrec
-    def combs(currentColors: List[Color], partialCombs: List[Mix]): List[Mix] = {
+  /**
+    * This method is intentionally not tail recursive. It trades-off memory allocation + improved running time vs.
+    * being stack-friendly. This is unlikely to be an issue as the max stack depth will be equal to `colors.size`, which
+    * should suffice for any practical scenario.
+    */
+  private def findOptimalSolution(colors: Set[Color], sheensOrderedByCost: List[Sheen], p: Mix => Boolean): Option[(Mix, Int)] = {
+    def backtrackingSearch(currentColors: List[Color], partialComb: Mix, partialCost: Int, currentBest: Option[(Mix, Int)]): Option[(Mix, Int)] = {
       currentColors match {
         case head :: tail =>
-          val newPartialCombs = for {
-            comb <- partialCombs
-            sheen <- sheens
-          } yield comb + Paint(head, sheen)
-          combs(tail, newPartialCombs)
+          var newBest = currentBest
+          for (sheen <- sheensOrderedByCost) {
+            val newPartialComb = partialComb + Paint(head, sheen)
+            val newPartialCost = partialCost + sheen.cost
+            newBest match {
+              case Some((_, cost)) if cost < newPartialCost =>
+                // discard subtree and keep current best
+              case _ =>
+                newBest = backtrackingSearch(tail, newPartialComb, newPartialCost, newBest)
+            }
+          }
+          newBest
 
-        case Nil => partialCombs.filter(p)
+        case Nil => if (p(partialComb)) Some((partialComb, partialCost)) else currentBest
       }
     }
 
-    combs(colors.toList, List(Set.empty))
+    backtrackingSearch(colors.toList.sorted, Set.empty, 0, None)
   }
 }
+
 
 
 /**

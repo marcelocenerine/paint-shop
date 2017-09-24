@@ -55,8 +55,12 @@ singleton selections are also identified at this stage, which prevents pointless
 
 #### Brute Force
 Explores the search space via exhaustive search and guarantees to find the optimal solution (if there is any) as long
-as unbounded running time is acceptable. The time complexity of this algorithm is `O(n^m)` in the worst case scenario,
-where `n` = sheens (2) and `m` = colors. This strategy is only indicated for relatively small data sets (up to 20 colors). 
+as potential long running times are acceptable. Once a feasible solution is found, it turns itself into a 
+[backtracking](https://en.wikipedia.org/wiki/Backtracking) algorithm to avoid further exploration of more expensive 
+partial solutions that can't improve the best solution found so far. This optimization can greatly reduce the remaining
+search space and, consequently, the running time.
+The time complexity of this algorithm is `O(n^m)` in the worst case scenario, where `n` = sheens (2) and `m` = colors. 
+This strategy is indicated for relatively small data sets (up to 20 colors). 
 
 #### Tabu Search
 Explores the search space using a simplified implementation of the [Tabu Search](https://en.wikipedia.org/wiki/Tabu_search)
@@ -85,8 +89,7 @@ run <path to file> --tabu-search [<timeout in secs>]
 **timeout defaults to 5 seconds if not provided*
 
 >*Note:* There are some sample input files available in the classpath under `/samples/` that can be used for testing.
-The `20x1000_feasible.txt` and `40x10000_feasible.txt` files in particular can be used to see the difference in
-running time between both algorithms.
+The `40x10000_feasible.txt` file in particular can be used to see the difference in running time between both algorithms.
 
 ### Bonus
 

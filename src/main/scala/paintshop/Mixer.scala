@@ -18,7 +18,7 @@ sealed trait Mixer {
   def mix(selections: List[PaintSelection]): Option[PaintSelection] = {
     if (selections.isEmpty) None
     else {
-      reduceSearchSpace(selections.toSet) match {
+      reduceSearchSpace(selections) match {
         case Some((mustHavePaints, reducedSelections)) =>
           if (reducedSelections.isEmpty) Some(PaintSelection(mustHavePaints))
           else {
@@ -32,6 +32,12 @@ sealed trait Mixer {
     }
   }
 
+  private def reduceSearchSpace(selections: List[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
+    val nonEmptySelections = selections.view.filter(_.paints.nonEmpty).toSet
+    val containsSingleton = nonEmptySelections.exists(_.paints.size == 1)
+    if (containsSingleton) eliminateSingletonsRecursively(nonEmptySelections) else Some(Set.empty, nonEmptySelections)
+  }
+
   protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection]
 
   /**
@@ -40,7 +46,7 @@ sealed trait Mixer {
     * reduction process. Unfeasible combinations derived from singleton selections are also identified at this stage,
     * which prevents pointless execution of subsequent phases.
     */
-  private def reduceSearchSpace(selections: Set[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
+  private def eliminateSingletonsRecursively(selections: Set[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
     val fixedPaints = mutable.Set.empty[Paint]
     val fixedColors = mutable.Set.empty[Color]
     val colorToSelCount = mutable.Map.empty ++ groupedByColor(selections).mapValues(_.size)
@@ -96,13 +102,12 @@ sealed trait Mixer {
     if (conflictFound) None else Some(fixedPaints.toSet, reducedSelections.toSet)
   }
 
-  protected def allColors(selections: Set[PaintSelection]): Set[Color] =
-    for (s <- selections; p <- s.paints) yield p.color
-
   private def groupedByColor(selections: Set[PaintSelection]): Map[Color, Set[PaintSelection]] =
     selections.flatMap(sel => sel.paints.map(paint => (paint.color, sel)))
       .groupBy { case (color, _) => color }
       .mapValues(grouped => grouped.map { case (_, sel) => sel })
+
+  protected def allColors(selections: Set[PaintSelection]): Set[Color] = selections.flatMap(s => s.paints.map(_.color))
 
   protected def satisfiesAll(selections: Set[PaintSelection])(mix: Mix): Boolean = {
     def isHappy(asked: PaintSelection) = asked.paints.exists(p => mix.contains(p))

@@ -141,9 +141,8 @@ object BruteForceMixer extends Mixer {
   }
 
   /**
-    * This method is intentionally not tail recursive. It trades-off improved running time vs. being stack-friendly.
-    * This is unlikely to be an issue as the max stack depth will be equal to `colors.size`, which should suffice for
-    * any practical scenario.
+    * This method is intentionally not tail recursive. This is unlikely to be an issue as the max stack depth will be
+    * equal to `colors.size`, which should suffice for any practical scenario.
     */
   private def findOptimalSolution(colors: Set[Color], sheensOrderedByCost: List[Sheen], p: Mix => Boolean): Option[(Mix, Int)] = {
     def backtrackingSearch(currentColors: List[Color], partialComb: Mix, partialCost: Int, currentBest: Option[(Mix, Int)]): Option[(Mix, Int)] = {

@@ -51,11 +51,11 @@ sealed trait Mixer {
     val fixedColors = mutable.Set.empty[Color]
     val colorToSelCount = mutable.Map.empty ++ groupedByColor(selections).mapValues(_.size)
     var reducedSelections = mutable.Set.empty ++ selections
-    var singletonFound = true
+    var reduced = true
     var conflictFound = false
 
-    while (reducedSelections.nonEmpty && singletonFound && !conflictFound) {
-      singletonFound = false
+    while (reducedSelections.nonEmpty && reduced && !conflictFound) {
+      reduced = false
       val visited = mutable.Set.empty[PaintSelection]
 
       for (selection <- reducedSelections) {
@@ -72,7 +72,7 @@ sealed trait Mixer {
             fixedColors += singleton.color
             colorToSelCount(singleton.color) -= 1
           }
-          singletonFound = true
+          reduced = true
         } else if (paints.nonEmpty) {
           val isSatisfied = paints.exists(fixedPaints.contains)
 
@@ -89,7 +89,11 @@ sealed trait Mixer {
 
             if (fixed.nonEmpty) {
               fixed.foreach(p => colorToSelCount(p.color) -= 1)
-              if (nonFixed.nonEmpty) visited += PaintSelection(nonFixed)
+
+              if (nonFixed.nonEmpty) {
+                visited += PaintSelection(nonFixed)
+                reduced = true
+              }
             } else {
               visited += selection // not satisfied nor could be reduced. Put it back
             }
@@ -99,7 +103,7 @@ sealed trait Mixer {
       reducedSelections = visited
     }
 
-    if (conflictFound) None else Some(fixedPaints.toSet, reducedSelections.toSet)
+    if (!conflictFound) Some(fixedPaints.toSet, reducedSelections.toSet) else None
   }
 
   private def groupedByColor(selections: Set[PaintSelection]): Map[Color, Set[PaintSelection]] =

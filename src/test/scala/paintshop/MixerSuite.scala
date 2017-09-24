@@ -6,7 +6,10 @@ import scala.language.postfixOps
 
 class MixerSuite extends FunSuite {
 
-  List(BruteForceMixer, new TabuSearchMixer(2 seconds)).foreach { mixer =>
+  runTests(BruteForceMixer)
+  runTests(new TabuSearchMixer(2 seconds))
+
+  def runTests(mixer: Mixer): Unit = {
     val name = mixer.getClass.getSimpleName
 
     test(s"$name - should not find solution for empty input") {
@@ -15,8 +18,8 @@ class MixerSuite extends FunSuite {
       assert(mixedSelection === None)
     }
 
-    test(s"$name - should find solution for empty selection") {
-      val mixedSelection = mixer.mix(List(PaintSelection(Set.empty)))
+    test(s"$name - should find solution for empty selections") {
+      val mixedSelection = mixer.mix(List(PaintSelection(Set.empty), PaintSelection(Set.empty)))
 
       assert(mixedSelection === Some(PaintSelection(Set.empty)))
     }
@@ -86,7 +89,7 @@ class MixerSuite extends FunSuite {
       assert(mixer.mix(selections) === Some(PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Gloss)))))
     }
 
-    test(s"$name - should find solution for singleton selections") {
+    test(s"$name - should find solution for distinct singleton selections") {
       val selections = List(
         PaintSelection(Set(Paint(Color(1), Gloss))),
         PaintSelection(Set(Paint(Color(2), Matte))),
@@ -100,7 +103,7 @@ class MixerSuite extends FunSuite {
       ))
     }
 
-    test(s"$name - should find solution for selections with increasing number of paints") {
+    test(s"$name - should find solution for selections with increasing number of identical paints") {
       val selections = List(
         PaintSelection(Set(Paint(Color(1), Gloss))),
         PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte))),
@@ -112,6 +115,47 @@ class MixerSuite extends FunSuite {
       assert(mixer.mix(selections) === Some(PaintSelection(Set(
         Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Gloss), Paint(Color(5), Gloss)))
       ))
+    }
+
+    test(s"$name - should find solution for selections with increasing number of distinct paints") {
+      val selections = List(
+        PaintSelection(Set(Paint(Color(1), Matte))),
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte))),
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Matte))),
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Matte))),
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Gloss), Paint(Color(5), Matte)))
+      )
+
+      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+        Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Matte), Paint(Color(4), Matte), Paint(Color(5), Matte)))
+      ))
+    }
+
+    test(s"$name - should find solution for identical non-singleton selections") {
+      val selections = List(
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss))),
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss))),
+        PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss)))
+      )
+
+      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+        Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss)))
+      ))
+    }
+
+    test(s"$name - should find one of many possible solutions") {
+      val selections = List(
+        PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Matte))),
+        PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Matte))),
+        PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Matte)))
+      )
+
+      val result = mixer.mix(selections)
+      val solution1 = Some(PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Gloss), Paint(Color(3), Gloss))))
+      val solution2 = Some(PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss))))
+      val solution3 = Some(PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Matte))))
+
+      assert(result === solution1 || result == solution2 || result == solution3)
     }
 
     test(s"$name - should find solution for sample input 1") {

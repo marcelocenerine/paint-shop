@@ -34,6 +34,8 @@ case class Paint(color: Color, sheen: Sheen) extends Ordered[Paint] {
 
 case class PaintSelection(paints: Set[Paint])
 
+case class PaintMix(paints: Set[Paint])
+
 
 
 package object misc {

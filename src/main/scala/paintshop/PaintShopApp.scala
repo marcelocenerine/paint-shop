@@ -50,7 +50,7 @@ object PaintShopApp extends App {
       }
     }
 
-    def printSolution(solution: Option[PaintSelection]) = solution match {
+    def printSolution(solution: Option[PaintMix]) = solution match {
       case Some(mix) =>
         val sortedPaints = mix.paints.toSeq.sorted
         println(sortedPaints.map(_.sheen).mkString(" "))

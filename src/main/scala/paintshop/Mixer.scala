@@ -8,21 +8,20 @@ import scala.util.Random
 
 sealed trait Mixer {
 
-  protected type Mix = Set[Paint]
-  protected type IndexedMix = Array[Paint]
+  protected type Solution = Set[Paint]
 
   protected val sheens: Set[Sheen] = Sheen.all
   protected lazy val cheapestSheen: Sheen = sheens.min
 
-  def mix(selections: List[PaintSelection]): Option[PaintSelection] = {
+  def mix(selections: List[PaintSelection]): Option[PaintMix] = {
     if (selections.isEmpty) None
     else {
       reduceSearchSpace(selections) match {
         case Some((mustHavePaints, reducedSelections)) =>
-          if (reducedSelections.isEmpty) Some(PaintSelection(mustHavePaints))
+          if (reducedSelections.isEmpty) Some(PaintMix(mustHavePaints))
           else {
             exploreSearchSpace(reducedSelections).map { mix =>
-              PaintSelection(mustHavePaints ++ mix.paints)
+              PaintMix(mustHavePaints ++ mix.paints)
             }
           }
 
@@ -31,13 +30,13 @@ sealed trait Mixer {
     }
   }
 
-  private def reduceSearchSpace(selections: List[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
+  private def reduceSearchSpace(selections: List[PaintSelection]): Option[(Solution, Set[PaintSelection])] = {
     val nonEmptySelections = selections.view.filter(_.paints.nonEmpty).toSet
     val containsSingleton = nonEmptySelections.exists(_.paints.size == 1)
     if (containsSingleton) eliminateSingletonsRecursively(nonEmptySelections) else Some(Set.empty, nonEmptySelections)
   }
 
-  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection]
+  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintMix]
 
   /**
     * Reduces the search space by eliminating singleton selections which can only be satisfied by a unique value.
@@ -45,7 +44,7 @@ sealed trait Mixer {
     * reduction process. Unfeasible combinations derived from singleton selections are also identified at this stage,
     * which prevents pointless execution of subsequent phases.
     */
-  private def eliminateSingletonsRecursively(selections: Set[PaintSelection]): Option[(Mix, Set[PaintSelection])] = {
+  private def eliminateSingletonsRecursively(selections: Set[PaintSelection]): Option[(Solution, Set[PaintSelection])] = {
     val fixedPaints = mutable.Set.empty[Paint]
     val fixedColors = mutable.Set.empty[Color]
     val colorToSelCount = mutable.Map.empty ++ groupedByColor(selections).mapValues(_.size)
@@ -112,12 +111,10 @@ sealed trait Mixer {
 
   protected def allColors(selections: Set[PaintSelection]): Set[Color] = selections.flatMap(s => s.paints.map(_.color))
 
-  protected def satisfiesAll(selections: Set[PaintSelection])(mix: Mix): Boolean = {
+  protected def satisfiesAll(selections: Set[PaintSelection])(mix: Solution): Boolean = {
     def isHappy(asked: PaintSelection) = asked.paints.exists(p => mix.contains(p))
     selections.forall(isHappy)
   }
-
-  protected def cost(mix: Mix): Int = mix.foldRight(0)((p, totalCost) => totalCost + p.sheen.cost)
 }
 
 
@@ -133,19 +130,19 @@ sealed trait Mixer {
   */
 object BruteForceMixer extends Mixer {
 
-  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
+  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintMix] = {
     val distinctColors = allColors(selections)
     val sheensOrderedByCost = sheens.toList.sorted
     val optimalSolution = findOptimalSolution(distinctColors, sheensOrderedByCost, satisfiesAll(selections))
-    optimalSolution.map { case (mix, _) => PaintSelection(mix) }
+    optimalSolution.map { case (mix, _) => PaintMix(mix) }
   }
 
   /**
     * This method is intentionally not tail recursive. This is unlikely to be an issue as the max stack depth will be
     * equal to `colors.size`, which should suffice for any practical scenario.
     */
-  private def findOptimalSolution(colors: Set[Color], sheensOrderedByCost: List[Sheen], p: Mix => Boolean): Option[(Mix, Int)] = {
-    def backtrackingSearch(currentColors: List[Color], partialComb: Mix, partialCost: Int, currentBest: Option[(Mix, Int)]): Option[(Mix, Int)] = {
+  private def findOptimalSolution(colors: Set[Color], sheensOrderedByCost: List[Sheen], p: Solution => Boolean): Option[(Solution, Int)] = {
+    def backtrackingSearch(currentColors: List[Color], partialComb: Solution, partialCost: Int, currentBest: Option[(Solution, Int)]): Option[(Solution, Int)] = {
       currentColors match {
         case head :: tail =>
           var newBest = currentBest
@@ -187,19 +184,22 @@ final class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.
   private val TabuSize = 1000
   private val random = new Random()
 
-  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintSelection] = {
+  private type IndexedSolution = Array[Paint]
+
+  protected def exploreSearchSpace(selections: Set[PaintSelection]): Option[PaintMix] = {
     val distinctColors = allColors(selections)
     val deadline = clock.millis() + localSearchDuration.toMillis
 
-    def scoreCalculator(mix: Mix): Int = if (satisfiesAll(selections)(mix)) -cost(mix) else Int.MinValue
+    def cost(mix: Solution): Int = mix.foldRight(0)((p, totalCost) => totalCost + p.sheen.cost)
+    def scoreCalculator(mix: Solution): Int = if (satisfiesAll(selections)(mix)) -cost(mix) else Int.MinValue
     def stopCondition: Boolean = clock.millis() > deadline
 
     val bestSolutionFound = search(distinctColors, scoreCalculator, stopCondition)
-    if (satisfiesAll(selections)(bestSolutionFound)) Some(PaintSelection(bestSolutionFound)) else None
+    if (satisfiesAll(selections)(bestSolutionFound)) Some(PaintMix(bestSolutionFound)) else None
   }
 
-  private def search(colors: Set[Color], scoreCalc: Mix => Int, stopCond: => Boolean): Mix = {
-    var currentSolution: IndexedMix = initialSolution(colors)
+  private def search(colors: Set[Color], scoreCalc: Solution => Int, stopCond: => Boolean): Solution = {
+    var currentSolution: IndexedSolution = initialSolution(colors)
     var bestSolution = currentSolution
     var bestSolutionScore: Int = scoreCalc(bestSolution.toSet)
     val tabuList = new TabuList(TabuSize)
@@ -221,20 +221,20 @@ final class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.
     bestSolution.toSet
   }
 
-  private def initialSolution(colors: Set[Color]): IndexedMix = colors.map(Paint(_, cheapestSheen)).toArray
+  private def initialSolution(colors: Set[Color]): IndexedSolution = colors.map(Paint(_, cheapestSheen)).toArray
 
-  private def randomNeighbors(originalSelection: IndexedMix): Set[IndexedMix] = {
-    val moveIndex = random.nextInt(originalSelection.length)
-    val oldPaint = originalSelection(moveIndex) // chooses one paint randomly
+  private def randomNeighbors(original: IndexedSolution): Set[IndexedSolution] = {
+    val moveIndex = random.nextInt(original.length)
+    val oldPaint = original(moveIndex) // chooses one paint randomly
 
     (sheens - oldPaint.sheen).map { diffSheen =>
-      val neighbor = originalSelection.clone()
+      val neighbor = original.clone()
       neighbor(moveIndex) = Paint(oldPaint.color, diffSheen) // sets a different sheen
       neighbor
     }
   }
 
-  private def pickBestCandidate(candidates: Set[IndexedMix], tabuList: TabuList, scoreCalc: Mix => Int): (IndexedMix, Int) = {
+  private def pickBestCandidate(candidates: Set[IndexedSolution], tabuList: TabuList, scoreCalc: Solution => Int): (IndexedSolution, Int) = {
     var best = candidates.head
     var bestScore = scoreCalc(best.toSet)
 

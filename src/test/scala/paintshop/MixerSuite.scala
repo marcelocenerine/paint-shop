@@ -21,7 +21,7 @@ class MixerSuite extends FunSuite {
     test(s"$name - should find solution for empty selections") {
       val mixedSelection = mixer.mix(List(PaintSelection(Set.empty), PaintSelection(Set.empty)))
 
-      assert(mixedSelection === Some(PaintSelection(Set.empty)))
+      assert(mixedSelection === Some(PaintMix(Set.empty)))
     }
 
     test(s"$name - should not find solution if more than one sheen for the same color are required") {
@@ -39,7 +39,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(1), Gloss)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(Paint(Color(1), Gloss)))))
+      assert(mixer.mix(selections) === Some(PaintMix(Set(Paint(Color(1), Gloss)))))
     }
 
     test(s"$name - should find solution for different paints") {
@@ -48,7 +48,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(2), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte)))))
+      assert(mixer.mix(selections) === Some(PaintMix(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte)))))
     }
 
     test(s"$name - should find solution when fixed paint does not match sheen in other selections") {
@@ -57,7 +57,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(1), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Matte)))))
+      assert(mixer.mix(selections) === Some(PaintMix(Set(Paint(Color(1), Matte), Paint(Color(2), Matte)))))
     }
 
     test(s"$name - should find solution when fixed paint matches sheen in other selections") {
@@ -66,7 +66,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(2), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte)))))
+      assert(mixer.mix(selections) === Some(PaintMix(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte)))))
     }
 
     test(s"$name - should find solution when fixed paint matches sheen in some selection") {
@@ -76,7 +76,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(2), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Matte)))))
+      assert(mixer.mix(selections) === Some(PaintMix(Set(Paint(Color(1), Matte), Paint(Color(2), Matte)))))
     }
 
     test(s"$name - should find solution when fixed paint matches sheen in some other selection with unique paint") {
@@ -86,7 +86,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(2), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Gloss)))))
+      assert(mixer.mix(selections) === Some(PaintMix(Set(Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Gloss)))))
     }
 
     test(s"$name - should find solution for distinct singleton selections") {
@@ -98,7 +98,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(5), Gloss)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+      assert(mixer.mix(selections) === Some(PaintMix(Set(
         Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss), Paint(Color(4), Matte), Paint(Color(5), Gloss)))
       ))
     }
@@ -112,7 +112,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss), Paint(Color(4), Matte), Paint(Color(5), Gloss)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+      assert(mixer.mix(selections) === Some(PaintMix(Set(
         Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Gloss), Paint(Color(5), Gloss)))
       ))
     }
@@ -126,7 +126,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Gloss), Paint(Color(5), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+      assert(mixer.mix(selections) === Some(PaintMix(Set(
         Paint(Color(1), Matte), Paint(Color(2), Matte), Paint(Color(3), Matte), Paint(Color(4), Matte), Paint(Color(5), Matte)))
       ))
     }
@@ -138,7 +138,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+      assert(mixer.mix(selections) === Some(PaintMix(Set(
         Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss)))
       ))
     }
@@ -151,9 +151,9 @@ class MixerSuite extends FunSuite {
       )
 
       val result = mixer.mix(selections)
-      val solution1 = Some(PaintSelection(Set(Paint(Color(1), Matte), Paint(Color(2), Gloss), Paint(Color(3), Gloss))))
-      val solution2 = Some(PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss))))
-      val solution3 = Some(PaintSelection(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Matte))))
+      val solution1 = Some(PaintMix(Set(Paint(Color(1), Matte), Paint(Color(2), Gloss), Paint(Color(3), Gloss))))
+      val solution2 = Some(PaintMix(Set(Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss))))
+      val solution3 = Some(PaintMix(Set(Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Matte))))
 
       assert(result === solution1 || result == solution2 || result == solution3)
     }
@@ -165,7 +165,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(5), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+      assert(mixer.mix(selections) === Some(PaintMix(Set(
         Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Gloss), Paint(Color(5), Matte)))
       ))
     }
@@ -188,7 +188,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(5), Gloss), Paint(Color(4), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+      assert(mixer.mix(selections) === Some(PaintMix(Set(
         Paint(Color(1), Gloss), Paint(Color(2), Matte), Paint(Color(3), Gloss), Paint(Color(4), Matte), Paint(Color(5), Gloss)))
       ))
     }
@@ -201,7 +201,7 @@ class MixerSuite extends FunSuite {
         PaintSelection(Set(Paint(Color(3), Matte), Paint(Color(4), Gloss), Paint(Color(5), Matte), Paint(Color(6), Gloss), Paint(Color(7), Matte)))
       )
 
-      assert(mixer.mix(selections) === Some(PaintSelection(Set(
+      assert(mixer.mix(selections) === Some(PaintMix(Set(
         Paint(Color(1), Gloss), Paint(Color(2), Gloss), Paint(Color(3), Gloss), Paint(Color(4), Gloss),
         Paint(Color(5), Gloss), Paint(Color(6), Gloss), Paint(Color(7), Gloss)))
       ))

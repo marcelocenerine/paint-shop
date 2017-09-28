@@ -182,7 +182,7 @@ object BruteForceMixer extends Mixer {
   * @param localSearchDuration - max amount of time to be spent in the local search
   * @param clock - system clock
   */
-class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.systemDefaultZone()) extends Mixer {
+final class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.systemDefaultZone()) extends Mixer {
 
   private val TabuSize = 1000
   private val random = new Random()
@@ -223,18 +223,18 @@ class TabuSearchMixer(localSearchDuration: Duration, clock: Clock = Clock.system
 
   private def initialSolution(colors: Set[Color]): IndexedMix = colors.map(Paint(_, cheapestSheen)).toArray
 
-  private def randomNeighbors(originalSelection: IndexedMix): Seq[IndexedMix] = {
+  private def randomNeighbors(originalSelection: IndexedMix): Set[IndexedMix] = {
     val moveIndex = random.nextInt(originalSelection.length)
     val oldPaint = originalSelection(moveIndex) // chooses one paint randomly
 
-    (sheens - oldPaint.sheen).toSeq.map { diffSheen =>
+    (sheens - oldPaint.sheen).map { diffSheen =>
       val neighbor = originalSelection.clone()
       neighbor(moveIndex) = Paint(oldPaint.color, diffSheen) // sets a different sheen
       neighbor
     }
   }
 
-  private def pickBestCandidate(candidates: Seq[IndexedMix], tabuList: TabuList, scoreCalc: Mix => Int): (IndexedMix, Int) = {
+  private def pickBestCandidate(candidates: Set[IndexedMix], tabuList: TabuList, scoreCalc: Mix => Int): (IndexedMix, Int) = {
     var best = candidates.head
     var bestScore = scoreCalc(best.toSet)
 

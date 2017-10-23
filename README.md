@@ -3,49 +3,11 @@ Problem Description *(details omitted)*
 Given a list of orders and a set of available paints (colors x sheens), find the optimal mix so that:
 1. all the customers are satisfied (hard-constraint)
 2. has the lowest cost (soft-constraint)
- 
- 
-Background
-----------
-
-This type of problem is scientifically known as [Constraint Satisfaction Problem](https://en.wikipedia.org/wiki/Constraint_satisfaction_problem)
-and relates to the combinatorial optimization topic. These problems consist in finding an optimal solution
-from a finite set of values under specific constraints (such as the ones mentioned in the description). 
-
-Although they may seem simple to solve at a first sight, in reality those problems are really hard to solve: potentially
-NP-complete or harder. As a result, there is no silver bullet to find the optimal solution in reasonable time. Even
-relatively small data sets can produce a huge search space that any brute force algorithm would take too long to traverse.
-As an example, the running time for the **Paint Shop** problem grows exponentially as can be seen in the micro benchmark
-below: *[Note: axis are in logarithmic scale and running times are measured in microseconds]*
-
-![Brute force benchmark](src/main/resources/misc/BruteForceMixerBenchmark.png)
-
-
->*Note:* To run the benchmarks yourself, on `sbt` run:
->```
->benchmark/charts
->```
->The results are shown on the terminal and charts generated under `paint-shop/benchmark/target/scala-2.12/`
-
-
-Throwing more parallelism (threads or computers) doesn't help much for large data sets. A more practical and scalable 
-solution to these problems is a combination of heuristics and meta-heuristics (such as Hill Climbing, Tabu Search,
-Simulated Annealing, etc). Such algorithms do not guarantee to find an optimal solution but they are likely to find a
-pretty good solution in reasonable time.
-
->*Side note:* In fact, this is a topic that fascinates me as I have had the opportunity to deal with a CSP problem in real 
-life (hardware allocation optimization). This inspired me to write a two-parts article
-([1](http://www.devmedia.com.br/red-hat-resolvendo-problemas-de-planejamento-com-optaplanner-parte-1/31981) \&
-[2](http://www.devmedia.com.br/como-escolher-o-algoritmo-mais-eficiente-com-optaplanner-parte-2/32085)) for a tech 
-magazine covering the topic as well as the framework [OptaPlanner](http://www.optaplanner.org/) (partially paywalled,
-in Portuguese).
-
-
 
 
 Solution
 --------
-This project provides 2 strategies to tackle the Paint Shop problem: brute force and local search (Tabu Search).
+This project provides 2 strategies to tackle the problem: brute force and local search (Tabu Search).
 These strategies can be chosen via command line argument (details below).
 
 Before even entering the search space exploration phase, the `Mixer` attempts to reduce the search space by eliminating
@@ -90,11 +52,4 @@ run <path to file> --tabu-search [<timeout in secs>]
 
 >*Note:* There are some sample input files available in the classpath under `/samples/` that can be used for testing.
 The `40x10000_feasible.txt` file in particular can be used to see the difference in running time between both algorithms.
-
-### Bonus
-
-- **Extensibility:** new sheens can be introduced without requiring any changes to the parsing/solving algorithms. Just
-need to add a new subtype for the `Sheen` sealed trait
-- **Benchmarks:** [JMH](http://openjdk.java.net/projects/code-tools/jmh) benchmarks for the brute force algorithm with
-chart generation available in the `benchmark` submodule
  
